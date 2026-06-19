@@ -219,7 +219,7 @@
     <div id="toast-msg">메시지</div>
 
     <div id="page-splash" class="page active" style="justify-content: center; align-items: center; background-color: var(--bg-color); padding-bottom:0;">
-        <img src="main_logo.png" style="width: 200px; height: 200px; border-radius: 50%; cursor: pointer;" onclick="navigate('profile')" alt="Logo">
+        <img src="main_logo.png" style="width: 200px; height: 200px; border-radius: 50%; cursor: pointer;" onclick="navigate('graph')" alt="Logo">
     </div>
 
     <div id="page-profile" class="page">
@@ -242,7 +242,7 @@
 
     <div id="page-graph" class="page">
         <div class="header">
-            <h1 style="font-size: 24px;">VIEW</h1>
+            <h1 style="font-size: 24px;">내 혈당 지도</h1>
             <select id="month-select-graph" onchange="changeMonth(this.value)" style="padding:5px 10px; border-radius:10px; border:1px solid var(--border-color); font-family:inherit; background-color:white; color:var(--text-accent1); font-weight:bold;">
                 <option value="">데이터 없음</option>
             </select>
@@ -353,8 +353,24 @@
             <div class="box" style="background:#fff0f0; border: 1px solid #ffab9e;">
                 <h3 style="margin-top:0; color:#ff6b6b;">데이터 관리</h3>
                 <p style="font-size:13px; line-height:1.5; color:var(--text-main); margin-bottom:15px;">오류가 발생하거나 데이터를 처음부터 다시 깔끔하게 업로드하고 싶을 때 사용하세요.</p>
+                <button class="btn btn-secondary" style="background-color: var(--area-2); margin-bottom:12px; padding:12px;" onclick="openDataLogPage()">데이터 확인하기</button>
                 <button class="btn btn-danger" style="padding:12px;" onclick="resetData()">앱 데이터 전체 초기화</button>
             </div>
+        </div>
+    </div>
+
+    <div id="page-data-log" class="page">
+        <div class="header">
+            <h1><button class="btn-back" onclick="goBack()">❮</button>데이터 상세 내역</h1>
+        </div>
+        <div class="content">
+            <h2>🩸 주기 기록 내역 및 개별 삭제</h2>
+            <div class="box" id="cycle-log-container" style="max-height: 250px; overflow-y: auto;">
+                </div>
+
+            <h2>📂 CSV 파일 업로드 이력 확인</h2>
+            <div class="box" id="csv-log-container" style="max-height: 250px; overflow-y: auto;">
+                </div>
         </div>
     </div>
 
@@ -385,10 +401,11 @@
 
     let globalGlucoseData = []; 
     let dailyDataMap = {}; 
-    let processedRecords = new Set(); // 📌 수정된 고유 식별자 금고 (중복 완벽 방지)
+    let processedRecords = new Set(); 
 
     let userProfile = { name: '', height: '', weight: '', basal: '투제오', bolus: '피아스프' };
-    let cyclePeriods = { menstruation: [], fertile: [] }; // 📌 단일 값에서 배열(리스트)로 변경
+    let cyclePeriods = { menstruation: [], fertile: [] }; 
+    let csvUploadHistory = []; // 📌 CSV 파일 업로드 이력 저장 배열 추가
     let availableMonths = []; 
     let currentMonthStr = "";
 
@@ -398,7 +415,8 @@
             cycle: cyclePeriods,
             glucose: globalGlucoseData, 
             dailyMap: dailyDataMap,
-            records: Array.from(processedRecords)
+            records: Array.from(processedRecords),
+            uploadHistory: csvUploadHistory // 📌 로컬 저장소 항목 추가
         };
         localStorage.setItem('mySugarMapData', JSON.stringify(dataToSave));
     }
@@ -418,7 +436,6 @@
             }
 
             if (parsed.cycle) {
-                // 배열 형태 마이그레이션 및 Date 복원
                 cyclePeriods.menstruation = Array.isArray(parsed.cycle.menstruation) ? parsed.cycle.menstruation : (parsed.cycle.menstruation ? [parsed.cycle.menstruation] : []);
                 cyclePeriods.fertile = Array.isArray(parsed.cycle.fertile) ? parsed.cycle.fertile : (parsed.cycle.fertile ? [parsed.cycle.fertile] : []);
                 
@@ -428,7 +445,11 @@
 
             if (parsed.dailyMap) dailyDataMap = parsed.dailyMap;
             if (parsed.records) processedRecords = new Set(parsed.records);
-            else if (parsed.timestamps) processedRecords = new Set(parsed.timestamps); // 이전 버전 호환성
+            else if (parsed.timestamps) processedRecords = new Set(parsed.timestamps); 
+
+            // 📌 업로드 이력 복구
+            if (parsed.uploadHistory) csvUploadHistory = parsed.uploadHistory;
+            else csvUploadHistory = [];
 
             if (parsed.glucose) {
                 globalGlucoseData = parsed.glucose.map(d => ({ x: new Date(d.x), y: d.y }));
@@ -485,7 +506,7 @@
     }
 
     function resetData() {
-        if(confirm("모든 혈당 및 프로필 기록이 깨끗하게 삭제됩니다.\n(누락된 인슐린 복구를 원하시면 초기화 후 CSV를 재업로드 해주세요.)\n\n초기화하시겠습니까?")) {
+        if(confirm("모든 혈당 및 프로필 기록, 업로드 이력이 깨끗하게 삭제됩니다.\n초기화하시겠습니까?")) {
             localStorage.removeItem('mySugarMapData');
             alert("초기화가 완료되었습니다. 앱이 재시작됩니다.");
             location.reload();
@@ -575,7 +596,6 @@
         const fEnd = document.getElementById('f-end').value;
 
         let added = false;
-        // 📌 다중 배열에 누적 저장 처리
         if(mStart && mEnd) { cyclePeriods.menstruation.push({ start: new Date(mStart), end: new Date(mEnd) }); added=true;}
         if(fStart && fEnd) { cyclePeriods.fertile.push({ start: new Date(fStart), end: new Date(fEnd) }); added=true;}
 
@@ -607,7 +627,7 @@
             const cleanCsvData = lines.slice(headerIndex).join('\n');
             Papa.parse(cleanCsvData, {
                 header: true, skipEmptyLines: true,
-                complete: function(results) { processDexcomData(results.data); },
+                complete: function(results) { processDexcomData(results.data, file.name); }, // 📌 파일명 전달
                 error: function(err) {
                     showToast("파일 분석 오류가 발생했습니다.");
                     statusText.innerText = "업로드 실패"; statusText.style.color = "red";
@@ -617,7 +637,7 @@
         reader.readAsText(file);
     }
 
-    function processDexcomData(data) {
+    function processDexcomData(data, fileName) {
         let timeKey = null, glucoseKey = null, insulinKey = null;
         let monthsSet = new Set(availableMonths);
         let newPointsCount = 0;
@@ -648,18 +668,15 @@
                 if (!dailyDataMap[dateKey]) {
                     dailyDataMap[dateKey] = { glucoseSum: 0, glucoseCount: 0, insulinSum: 0, basalSum: 0, bolusSum: 0 };
                 }
-                // 이전 데이터 안전 장치
                 if(dailyDataMap[dateKey].basalSum === undefined) dailyDataMap[dateKey].basalSum = 0;
                 if(dailyDataMap[dateKey].bolusSum === undefined) dailyDataMap[dateKey].bolusSum = 0;
 
-                // 📌 수정 1: "낮음(Low)" 처리 로직 추가
                 let glucoseVal = NaN;
                 if (glucoseStr) {
                     if (glucoseStr === '낮음' || glucoseStr.toLowerCase() === 'low') glucoseVal = 40;
                     else glucoseVal = parseFloat(glucoseStr);
                 }
 
-                // 혈당 데이터 처리 (독립적인 String Key 사용)
                 if (!isNaN(glucoseVal)) {
                     const gKey = `G_${timestampVal}_${glucoseVal}`;
                     if (!processedRecords.has(gKey)) {
@@ -672,7 +689,6 @@
                     }
                 }
 
-                // 📌 수정 2 & 3: 인슐린 데이터 분리 기록 및 동시간대 증발 방지 (독립 String Key 사용)
                 if (insulinStr && !isNaN(parseFloat(insulinStr))) {
                     let insVal = parseFloat(insulinStr);
                     const iKey = `I_${timestampVal}_${insVal}_${eventSubType}`;
@@ -681,7 +697,6 @@
                         processedRecords.add(iKey);
                         dailyDataMap[dateKey].insulinSum += insVal;
                         
-                        // 하위 유형을 판별해 기저/초속효성 분리 합산
                         if (eventSubType.includes('기저') || eventSubType.toLowerCase().includes('basal') || eventSubType.includes('지속')) {
                             dailyDataMap[dateKey].basalSum += insVal;
                         } else {
@@ -699,6 +714,15 @@
             availableMonths = Array.from(monthsSet).sort((a,b) => b.localeCompare(a));
             if(availableMonths.length > 0) currentMonthStr = availableMonths[0]; 
             
+            // 📌 CSV 업로드 이력 기록 추가
+            const now = new Date();
+            const timeLogStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            csvUploadHistory.push({
+                date: timeLogStr,
+                fileName: fileName || "알 수 없는 파일",
+                count: newPointsCount
+            });
+
             updateMonthDropdowns();
             saveToLocalStorage(); 
             
@@ -709,6 +733,77 @@
             showToast("이미 등록된 데이터입니다.");
         }
         setTimeout(() => navigate('graph'), 1000);
+    }
+
+    // 📌 데이터 확인창 열기 및 렌더링 함수 추가
+    function openDataLogPage() {
+        navigate('data-log');
+        renderDataLog();
+    }
+
+    function renderDataLog() {
+        // 1. 주기 데이터 관리 바인딩
+        const cycleContainer = document.getElementById('cycle-log-container');
+        let cycleHtml = '';
+
+        if (cyclePeriods.menstruation.length === 0 && cyclePeriods.fertile.length === 0) {
+            cycleHtml = '<p style="font-size:13px; color:#bbbbbb; text-align:center; margin:0;">기록된 주기 데이터가 없습니다.</p>';
+        } else {
+            cycleHtml += '<ul style="padding:0; margin:0; list-style:none; font-size:13px;">';
+            
+            // 생리 주기 내역 출력
+            cyclePeriods.menstruation.forEach((p, idx) => {
+                const sStr = p.start.toISOString().split('T')[0];
+                const eStr = p.end.toISOString().split('T')[0];
+                cycleHtml += `<li style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
+                    <span>🩸 <b style="color:var(--area-1);">생리 기간:</b> ${sStr} ~ ${eStr}</span>
+                    <button onclick="deleteCycleItem('menstruation', ${idx})" style="padding:4px 8px; background:#ff6b6b; color:white; border:none; border-radius:8px; font-size:11px; cursor:pointer; font-weight:bold;">삭제</button>
+                </li>`;
+            });
+
+            // 가임기 내역 출력
+            cyclePeriods.fertile.forEach((p, idx) => {
+                const sStr = p.start.toISOString().split('T')[0];
+                const eStr = p.end.toISOString().split('T')[0];
+                cycleHtml += `<li style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
+                    <span>✨ <b style="color:var(--text-accent1);">가임 기간:</b> ${sStr} ~ ${eStr}</span>
+                    <button onclick="deleteCycleItem('fertile', ${idx})" style="padding:4px 8px; background:#ff6b6b; color:white; border:none; border-radius:8px; font-size:11px; cursor:pointer; font-weight:bold;">삭제</button>
+                </li>`;
+            });
+            cycleHtml += '</ul>';
+        }
+        cycleContainer.innerHTML = cycleHtml;
+
+        // 2. CSV 파일 업로드 이력 바인딩
+        const csvContainer = document.getElementById('csv-log-container');
+        let csvHtml = '';
+
+        if (csvUploadHistory.length === 0) {
+            csvHtml = '<p style="font-size:13px; color:#bbbbbb; text-align:center; margin:0;">업로드 이력이 없습니다.</p>';
+        } else {
+            csvHtml += '<ul style="padding:0; margin:0; list-style:none; font-size:12px; color:var(--text-main);">';
+            // 최신 이력이 가장 먼저 위로 오도록 역순 출력
+            for(let i = csvUploadHistory.length - 1; i >= 0; i--) {
+                const log = csvUploadHistory[i];
+                csvHtml += `<li style="margin-bottom:10px; border-bottom:1px dashed var(--border-color); padding-bottom:8px; line-height:1.6;">
+                    ⏱️ <b>일시:</b> ${log.date}<br>
+                    📂 <b>파일명:</b> <span style="color:var(--text-accent1); word-break:break-all;">${log.fileName}</span><br>
+                    ✅ <b>동기화 데이터:</b> ${log.count}건 병합 완료
+                </li>`;
+            }
+            csvHtml += '</ul>';
+        }
+        csvContainer.innerHTML = csvHtml;
+    }
+
+    // 개별 항목 삭제 스크립트
+    function deleteCycleItem(type, index) {
+        if (confirm("해당 기간 기록을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.")) {
+            cyclePeriods[type].splice(index, 1);
+            saveToLocalStorage();
+            showToast("기록이 성공적으로 삭제되었습니다.");
+            renderDataLog(); // 화면 리프레시
+        }
     }
 
     function setGraphPeriod(period, btnElement) {
@@ -776,7 +871,6 @@
             sortedDates.forEach(dateStr => {
                 let dData = dailyDataMap[dateStr];
                 let midDay = new Date(dateStr + 'T12:00:00');
-                // 📌 누적 바 차트를 위해 분리된 데이터 배열 구성
                 basalInsulinData.push({ x: midDay, y: dData.basalSum || 0 });
                 bolusInsulinData.push({ x: midDay, y: dData.bolusSum || 0 });
             });
@@ -795,7 +889,6 @@
             });
         }
 
-        // 📌 수정 3: 인슐린을 분리형 누적 막대 차트(Stacked Bar)로 변경
         if (showInsulin && basalInsulinData.length > 0) {
             datasets.push({
                 type: 'bar',
@@ -817,7 +910,6 @@
             });
         }
 
-        // 📌 다중 주기 렌더링 지원 (배열 순회)
         let annotations = {};
         if (showCycle) {
             cyclePeriods.menstruation.forEach((period, i) => {
@@ -847,14 +939,14 @@
                     x: {
                         type: 'time', time: { unit: 'day', displayFormats: { day: 'M/d' } },
                         min: xAxisMin, max: xAxisMax, grid: { display: false },
-                        stacked: true // 막대그래프 누적을 위한 설정
+                        stacked: true 
                     },
                     y: {
                         min: 40, max: 350, grid: { color: '#efefef' }, position: 'left', stacked: false
                     },
                     y1: {
                         min: 0, position: 'right', display: showInsulin, 
-                        grid: { drawOnChartArea: false }, stacked: true // 막대 누적
+                        grid: { drawOnChartArea: false }, stacked: true 
                     }
                 },
                 plugins: { legend: { display: showInsulin }, annotation: { annotations: annotations, clip: true } } 

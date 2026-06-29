@@ -3,6 +3,1043 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Crucose & Hormone Tracker</title>
+    
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
+    <style>
+        /* === 수현님의 파스텔 컬러 팔레트 === */
+        :root {
+            --bg-color: #fffcf9;
+            --text-main: #999999;
+            --text-accent1: #0096bd;
+            --text-accent2: #ecb0a6;
+            --area-1: #ffab9e; /* 초속효성(핑크) & 생리 */
+            --area-2: #5bc6e1; /* 메인 테마 블루 */
+            --area-3: #fed98a; /* 기저(노랑) */
+            --gray-light: #f5f5f5;
+            --border-color: #efefef;
+        }
+
+        /* === 기본 초기화 === */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #e0e0e0; 
+            color: var(--text-main);
+            font-family: 'Pretendard', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* === 앱 컨테이너 === */
+        .app-container {
+            width: 100%;
+            max-width: 480px; 
+            height: 100%;
+            background-color: var(--bg-color);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* 📱 아이패드 및 가로 모드 (Landscape) 지원 */
+        @media screen and (min-width: 768px) {
+            body {
+                background-color: #f4f4f4;
+            }
+            .app-container {
+                max-width: 800px;
+                height: 90vh;
+                border-radius: 30px;
+                border: 1px solid var(--border-color);
+            }
+            .bottom-nav {
+                border-radius: 0 0 30px 30px;
+            }
+            .page {
+                padding-bottom: 90px;
+            }
+        }
+
+        /* 스크롤바 커스텀 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #dcdcdc; border-radius: 3px; }
+
+        /* === 화면(Page) 공통 스타일 === */
+        .page {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            overflow-y: auto;
+            padding-bottom: 80px; 
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .page.active { display: flex; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* === 상단 헤더 === */
+        .header {
+            padding: 20px 20px 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--bg-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            color: var(--text-accent1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-back {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-accent1);
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        /* === 하단 네비게이션 탭 바 === */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 65px;
+            background-color: #ffffff;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #cccccc;
+            font-size: 12px;
+            text-decoration: none;
+            cursor: pointer;
+            width: 33.33%; 
+            height: 100%;
+        }
+
+        .nav-item.active { color: var(--text-accent1); font-weight: bold; }
+        .nav-icon-placeholder { width: 24px; height: 24px; background-color: currentColor; border-radius: 4px; margin-bottom: 4px; }
+
+        .img-placeholder {
+            background-color: var(--gray-light);
+            border: 2px dashed #dcdcdc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #bbbbbb;
+            font-size: 14px;
+            text-align: center;
+            border-radius: 16px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .content { padding: 0 20px; }
+        h2 { color: var(--text-accent2); font-size: 16px; margin-top: 25px; margin-bottom: 10px; }
+        
+        .box {
+            background-color: #ffffff;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+
+        .input-wrap { margin-bottom: 15px; }
+        .input-wrap label { display: block; font-size: 14px; color: var(--text-accent1); margin-bottom: 5px; font-weight: bold; }
+        .input-wrap input, .input-wrap select { 
+            width: 100%; padding: 12px; border: 1px solid var(--border-color); 
+            border-radius: 12px; font-size: 15px; color: var(--text-main); box-sizing: border-box; background-color: #fafafa;
+        }
+        .input-wrap input:focus, .input-wrap select:focus { outline: none; border-color: var(--area-2); }
+
+        .btn {
+            width: 100%; padding: 16px; border: none; border-radius: 16px;
+            font-size: 16px; font-weight: bold; cursor: pointer; text-align: center; transition: transform 0.1s;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background-color: var(--area-1); color: #fff; }
+        .btn-secondary { background-color: var(--area-2); color: #fff; }
+        .btn-tertiary { background-color: var(--area-3); color: #fff; }
+        .btn-danger { background-color: #ff6b6b; color: white; }
+        
+        .toggle-btn { padding:8px 12px; border-radius:20px; font-size:12px; cursor:pointer; color:white; transition: all 0.2s; border: none; font-weight: bold; }
+        .period-btn, .graph-period-btn { padding: 6px 12px; border-radius: 15px; font-size: 13px; font-weight: bold; cursor: pointer; border: none; transition: 0.2s; }
+
+        #toast-msg {
+            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 20px;
+            font-size: 14px; z-index: 1000; display: none; opacity: 0; transition: opacity 0.3s;
+            text-align: center; white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div id="toast-msg">메시지</div>
+
+    <div id="page-splash" class="page active" style="justify-content: center; align-items: center; background-color: var(--bg-color); padding-bottom:0;">
+        <img src="main_logo.png" style="width: 200px; height: 200px; border-radius: 50%; cursor: pointer;" onclick="navigate('graph')" alt="Logo">
+    </div>
+
+    <div id="page-profile" class="page">
+        <div class="header">
+            <h1><button class="btn-back" onclick="goBack()" id="btn-back-profile" style="display:none;">❮</button>프로필 설정</h1>
+        </div>
+        <div class="content">
+            <div class="input-wrap"><label>이름</label><input type="text" id="input-name" placeholder="예: 수현"></div>
+            <div class="input-wrap"><label>신장 (cm)</label><input type="number" id="input-height" placeholder="예: 165"></div>
+            <div class="input-wrap"><label>체중 (kg)</label><input type="number" id="input-weight" placeholder="예: 55"></div>
+            <div class="input-wrap"><label>기저 인슐린</label>
+                <select id="input-basal"><option value="투제오">투제오 (Toujeo)</option><option value="트레시바">트레시바 (Tresiba)</option></select>
+            </div>
+            <div class="input-wrap"><label>초속효성 인슐린</label>
+                <select id="input-bolus"><option value="피아스프">피아스프 (Fiasp)</option><option value="노보래피드">노보래피드 (NovoRapid)</option></select>
+            </div>
+            <button class="btn btn-primary" style="margin-top:20px;" onclick="saveProfile()">저장하고 시작하기</button>
+        </div>
+    </div>
+
+    <div id="page-graph" class="page">
+        <div class="header">
+            <h1 style="font-size: 24px;">내 혈당 지도</h1>
+            <select id="month-select-graph" onchange="changeMonth(this.value)" style="padding:5px 10px; border-radius:10px; border:1px solid var(--border-color); font-family:inherit; background-color:white; color:var(--text-accent1); font-weight:bold;">
+                <option value="">데이터 없음</option>
+            </select>
+        </div>
+        <div class="content">
+            <p style="margin-top:0; margin-bottom:15px; font-size:14px; color:var(--text-accent2); font-weight:bold;">Hi, <span class="display-name">수현</span>님!</p>
+
+            <div style="display:flex; gap:8px; margin-bottom:15px; justify-content:flex-end;">
+                <button class="graph-period-btn" style="background:var(--gray-light); color:var(--text-main);" onclick="setGraphPeriod(7, this)">7일</button>
+                <button class="graph-period-btn" style="background:var(--gray-light); color:var(--text-main);" onclick="setGraphPeriod(15, this)">15일</button>
+                <button class="graph-period-btn" style="background:var(--area-2); color:white;" onclick="setGraphPeriod('all', this)" id="btn-graph-period-all">전체</button>
+            </div>
+
+            <div style="width: 100%; height: 350px; margin-bottom:15px; background-color: #fff; border-radius: 20px; padding: 10px; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                <canvas id="glucoseChart"></canvas>
+            </div>
+            
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                <button id="btn-toggle-glucose" class="toggle-btn" style="background:var(--area-2); opacity:1;" onclick="toggleDataset('glucose')">혈당 (ON)</button>
+                <button id="btn-toggle-insulin" class="toggle-btn" style="background:var(--area-3); opacity:0.5;" onclick="toggleDataset('insulin')">인슐린 (OFF)</button>
+                <button id="btn-toggle-cycle" class="toggle-btn" style="background:var(--area-1); opacity:0.5;" onclick="toggleDataset('cycle')">생리주기 (OFF)</button>
+            </div>
+
+            <div class="box" style="background-color: var(--area-1); color:white; text-align:center; padding:15px; margin-top:20px; cursor:pointer;" onclick="navigate('table')">
+                <span style="font-weight:bold;">데이터 표로 자세히 보기 ➔</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-table" class="page">
+        <div class="header">
+            <h1><button class="btn-back" onclick="goBack()">❮</button>데이터 기록창</h1>
+            <select id="month-select-table" onchange="changeMonth(this.value)" style="padding:5px 10px; border-radius:10px; border:1px solid var(--border-color); font-family:inherit; background-color:white; color:var(--text-accent1); font-weight:bold;">
+                <option value="">데이터 없음</option>
+            </select>
+        </div>
+        <div class="content">
+            <div class="box" style="background:#f0fbfe; border: 1px solid var(--area-2);">
+                <h3 style="margin-top:0; font-size:15px; color:var(--text-accent1);">⚖️ 나의 적정 인슐린 총량(TDD)</h3>
+                <p style="font-size:13px; line-height:1.5; color:var(--text-main); margin-bottom:5px;">
+                    1형 당뇨인의 하루 적정 인슐린 총량은 <b>체중 1kg당 약 0.55 단위</b>입니다.
+                </p>
+                <div style="font-size:18px; font-weight:bold; color:var(--area-2); text-align:right;" id="display-recommended-dose">
+                    프로필에 체중을 입력해주세요
+                </div>
+            </div>
+
+            <div style="display:flex; gap:8px; margin-bottom:15px; justify-content:flex-end;">
+                <button class="period-btn" style="background:var(--gray-light); color:var(--text-main);" onclick="setTablePeriod(7, this)">7일</button>
+                <button class="period-btn" style="background:var(--gray-light); color:var(--text-main);" onclick="setTablePeriod(15, this)">15일</button>
+                <button class="period-btn" style="background:var(--area-2); color:white;" onclick="setTablePeriod('all', this)" id="btn-period-all">전체</button>
+            </div>
+
+            <div class="box" style="padding:15px;" id="table-container">
+                <div class="img-placeholder" style="width: 100%; height: 200px; border-radius: 20px;">데이터를 업로드하면 표가 생성됩니다</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-upload" class="page">
+        <div class="header"><h1>데이터 업데이트</h1></div>
+        <div class="content">
+            <h2>1. 혈당 데이터 업로드 (CSV)</h2>
+            <div class="box" style="border: 2px dashed var(--area-2); background: #f0fbfe; text-align:center; padding: 30px 20px;">
+                <div class="img-placeholder" style="width: 60px; height: 60px; margin: 0 auto 15px auto; border-radius:12px; background-color: white; border: 1px solid var(--area-2); color: var(--area-2); cursor:pointer;" onclick="document.getElementById('csvFileInput').click()">CSV</div>
+                <p id="upload-status" style="margin:0 0 15px 0; font-size:14px; color:var(--text-accent1);">덱스콤 CSV 파일을 올려주세요</p>
+                
+                <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="handleFileUpload(event)">
+                <button class="btn btn-secondary" onclick="document.getElementById('csvFileInput').click()">파일 선택하기</button>
+            </div>
+
+            <h2>2. 나의 주기 기록</h2>
+            <div class="box">
+                <div class="input-wrap">
+                    <label>생리 기간</label>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <input type="date" id="m-start" style="flex:1; padding:10px; font-size:13px;"> 
+                        <span style="color:var(--text-main);">-</span> 
+                        <input type="date" id="m-end" style="flex:1; padding:10px; font-size:13px;">
+                    </div>
+                </div>
+                <div class="input-wrap" style="margin-top:20px;">
+                    <label>가임기 (건강 앱 기준)</label>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <input type="date" id="f-start" style="flex:1; padding:10px; font-size:13px;"> 
+                        <span style="color:var(--text-main);">-</span> 
+                        <input type="date" id="f-end" style="flex:1; padding:10px; font-size:13px;">
+                    </div>
+                </div>
+                <button class="btn btn-tertiary" style="margin-top:10px;" onclick="saveCycleData()">기간 누적 저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-settings" class="page">
+        <div class="header"><h1>설정 및 백업</h1></div>
+        <div class="content">
+            <button class="btn btn-primary" style="margin-bottom:15px;" onclick="navigate('profile')">프로필/인슐린 정보 수정</button>
+            
+            <div class="box" style="background:#fffcf9; border: 1px solid var(--area-1);">
+                <h3 style="margin-top:0; color:var(--text-accent2);">데이터 백업 및 복구 (iCloud)</h3>
+                <p style="font-size:13px; line-height:1.5; color:var(--text-main); margin-bottom:15px;">앱 내에 저장된 모든 기록을 파일로 내려받아 기기를 변경하거나 패드에서 불러올 수 있습니다.</p>
+                <button class="btn btn-primary" style="margin-bottom:10px; padding:12px;" onclick="exportData()">내보내기 (백업 파일 저장)</button>
+                <button class="btn" style="background:#eeeeee; color:#666; padding:12px;" onclick="document.getElementById('importFileInput').click()">가져오기 (파일 불러오기)</button>
+                <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="importData(event)">
+            </div>
+
+            <div class="box" style="background:#fff0f0; border: 1px solid #ffab9e;">
+                <h3 style="margin-top:0; color:#ff6b6b;">데이터 관리</h3>
+                <p style="font-size:13px; line-height:1.5; color:var(--text-main); margin-bottom:15px;">오류가 발생하거나 데이터를 처음부터 다시 깔끔하게 업로드하고 싶을 때 사용하세요.</p>
+                <button class="btn btn-secondary" style="background-color: var(--area-2); margin-bottom:12px; padding:12px;" onclick="openDataLogPage()">데이터 확인하기</button>
+                <button class="btn btn-danger" style="padding:12px;" onclick="resetData()">앱 데이터 전체 초기화</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-data-log" class="page">
+        <div class="header">
+            <h1><button class="btn-back" onclick="goBack()">❮</button>데이터 상세 내역</h1>
+        </div>
+        <div class="content">
+            <h2>🩸 주기 기록 내역 및 개별 삭제</h2>
+            <div class="box" id="cycle-log-container" style="max-height: 250px; overflow-y: auto;">
+                </div>
+
+            <h2>📂 CSV 파일 업로드 이력 확인</h2>
+            <div class="box" id="csv-log-container" style="max-height: 250px; overflow-y: auto;">
+                </div>
+        </div>
+    </div>
+
+    <div class="bottom-nav" id="bottom-nav" style="display:none;">
+        <div class="nav-item active" onclick="navigate('graph', this)">
+            <div class="nav-icon-placeholder"></div><span>그래프</span>
+        </div>
+        <div class="nav-item" onclick="navigate('upload', this)">
+            <div class="nav-icon-placeholder"></div><span>업로드</span>
+        </div>
+        <div class="nav-item" onclick="navigate('settings', this)">
+            <div class="nav-icon-placeholder"></div><span>설정</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showToast(message) {
+        const toast = document.getElementById('toast-msg');
+        toast.innerText = message;
+        toast.style.display = 'block';
+        setTimeout(() => toast.style.opacity = '1', 10);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.style.display = 'none', 300);
+        }, 2500);
+    }
+
+    let globalGlucoseData = []; 
+    let dailyDataMap = {}; 
+    let processedRecords = new Set(); 
+
+    let userProfile = { name: '', height: '', weight: '', basal: '투제오', bolus: '피아스프' };
+    let cyclePeriods = { menstruation: [], fertile: [] }; 
+    let csvUploadHistory = []; // 📌 CSV 파일 업로드 이력 저장 배열 추가
+    let availableMonths = []; 
+    let currentMonthStr = "";
+
+    function saveToLocalStorage() {
+        const dataToSave = {
+            profile: userProfile,
+            cycle: cyclePeriods,
+            glucose: globalGlucoseData, 
+            dailyMap: dailyDataMap,
+            records: Array.from(processedRecords),
+            uploadHistory: csvUploadHistory // 📌 로컬 저장소 항목 추가
+        };
+        localStorage.setItem('mySugarMapData', JSON.stringify(dataToSave));
+    }
+
+    function loadFromLocalStorage() {
+        const savedData = localStorage.getItem('mySugarMapData');
+        if (savedData) {
+            const parsed = JSON.parse(savedData);
+            if (parsed.profile) {
+                userProfile = parsed.profile;
+                document.getElementById('input-name').value = userProfile.name || '';
+                document.getElementById('input-height').value = userProfile.height || '';
+                document.getElementById('input-weight').value = userProfile.weight || '';
+                document.getElementById('input-basal').value = userProfile.basal || '투제오';
+                document.getElementById('input-bolus').value = userProfile.bolus || '피아스프';
+                document.querySelectorAll('.display-name').forEach(el => el.innerText = userProfile.name || '수현');
+            }
+
+            if (parsed.cycle) {
+                cyclePeriods.menstruation = Array.isArray(parsed.cycle.menstruation) ? parsed.cycle.menstruation : (parsed.cycle.menstruation ? [parsed.cycle.menstruation] : []);
+                cyclePeriods.fertile = Array.isArray(parsed.cycle.fertile) ? parsed.cycle.fertile : (parsed.cycle.fertile ? [parsed.cycle.fertile] : []);
+                
+                cyclePeriods.menstruation.forEach(p => { p.start = new Date(p.start); p.end = new Date(p.end); });
+                cyclePeriods.fertile.forEach(p => { p.start = new Date(p.start); p.end = new Date(p.end); });
+            }
+
+            if (parsed.dailyMap) dailyDataMap = parsed.dailyMap;
+            if (parsed.records) processedRecords = new Set(parsed.records);
+            else if (parsed.timestamps) processedRecords = new Set(parsed.timestamps); 
+
+            // 📌 업로드 이력 복구
+            if (parsed.uploadHistory) csvUploadHistory = parsed.uploadHistory;
+            else csvUploadHistory = [];
+
+            if (parsed.glucose) {
+                globalGlucoseData = parsed.glucose.map(d => ({ x: new Date(d.x), y: d.y }));
+            }
+
+            let monthsSet = new Set();
+            Object.keys(dailyDataMap).forEach(key => monthsSet.add(key.substring(0, 7)));
+            availableMonths = Array.from(monthsSet).sort((a,b) => b.localeCompare(a));
+            if(availableMonths.length > 0) currentMonthStr = availableMonths[0];
+            updateMonthDropdowns();
+            
+            return true;
+        }
+        return false;
+    }
+
+    window.onload = function() {
+        const hasData = loadFromLocalStorage();
+        if (hasData && globalGlucoseData.length > 0) navigate('graph');
+        else navigate('splash');
+    };
+
+    function exportData() {
+        saveToLocalStorage();
+        const data = localStorage.getItem('mySugarMapData');
+        if(!data) { showToast('백업할 데이터가 없습니다.'); return; }
+
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `SugarMap_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('백업 파일이 기기에 저장되었습니다!');
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if(!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const json = JSON.parse(e.target.result);
+                if (json.profile || json.glucose || json.dailyMap) {
+                    localStorage.setItem('mySugarMapData', e.target.result);
+                    showToast('데이터 복구 성공! 새로고침 됩니다.');
+                    setTimeout(() => location.reload(), 1500);
+                } else showToast('올바른 백업 파일 형식이 아닙니다.');
+            } catch(err) { showToast('오류가 발생했습니다.'); }
+        };
+        reader.readAsText(file);
+    }
+
+    function resetData() {
+        if(confirm("모든 혈당 및 프로필 기록, 업로드 이력이 깨끗하게 삭제됩니다.\n초기화하시겠습니까?")) {
+            localStorage.removeItem('mySugarMapData');
+            alert("초기화가 완료되었습니다. 앱이 재시작됩니다.");
+            location.reload();
+        }
+    }
+
+    let pageHistory = ['splash'];
+    let currentPage = 'splash';
+
+    function navigate(pageId, navElement) {
+        document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+        const targetPage = document.getElementById('page-' + pageId);
+        if(targetPage) targetPage.classList.add('active');
+
+        const bottomNav = document.getElementById('bottom-nav');
+        if (pageId === 'splash' || pageId === 'profile') bottomNav.style.display = 'none';
+        else bottomNav.style.display = 'flex';
+        
+        if (navElement) {
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            navElement.classList.add('active');
+        } else {
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            if(pageId === 'graph') navItems[0].classList.add('active');
+            if(pageId === 'upload') navItems[1].classList.add('active');
+            if(pageId === 'settings') navItems[2].classList.add('active');
+        }
+
+        const btnBackProfile = document.getElementById('btn-back-profile');
+        if (pageId === 'profile') {
+            if (pageHistory.length <= 1) btnBackProfile.style.display = 'none';
+            else btnBackProfile.style.display = 'flex';
+        }
+
+        if (currentPage !== pageId) { pageHistory.push(pageId); currentPage = pageId; }
+        if (pageId === 'graph') { setGraphPeriod('all', document.getElementById('btn-graph-period-all')); renderChart(); }
+    }
+
+    function goBack() {
+        if (pageHistory.length > 1) {
+            pageHistory.pop();
+            const prevPage = pageHistory[pageHistory.length - 1];
+            currentPage = prevPage;
+            
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.getElementById('page-' + prevPage).classList.add('active');
+            
+            const bottomNav = document.getElementById('bottom-nav');
+            if (prevPage === 'splash' || prevPage === 'profile') bottomNav.style.display = 'none';
+            else bottomNav.style.display = 'flex';
+            
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            if(prevPage === 'graph') navItems[0].classList.add('active');
+            if(prevPage === 'upload') navItems[1].classList.add('active');
+            if(prevPage === 'settings') navItems[2].classList.add('active');
+            
+            if(prevPage === 'graph') renderChart();
+        }
+    }
+
+    let myChart = null; 
+    let showGlucose = true;
+    let showInsulin = false;
+    let showCycle = false;
+    let currentTablePeriod = 'all'; 
+    let currentGraphPeriod = 'all';
+
+    function saveProfile() {
+        userProfile.name = document.getElementById('input-name').value;
+        userProfile.height = document.getElementById('input-height').value;
+        userProfile.weight = document.getElementById('input-weight').value;
+        userProfile.basal = document.getElementById('input-basal').value;
+        userProfile.bolus = document.getElementById('input-bolus').value;
+        if(userProfile.name) document.querySelectorAll('.display-name').forEach(el => el.innerText = userProfile.name);
+        saveToLocalStorage();
+        showToast('프로필 정보가 저장되었습니다.');
+        if(pageHistory.length > 1 && pageHistory[0] === 'splash' && pageHistory.length <= 2) navigate('graph');
+        else goBack();
+    }
+
+    function saveCycleData() {
+        const mStart = document.getElementById('m-start').value;
+        const mEnd = document.getElementById('m-end').value;
+        const fStart = document.getElementById('f-start').value;
+        const fEnd = document.getElementById('f-end').value;
+
+        let added = false;
+        if(mStart && mEnd) { cyclePeriods.menstruation.push({ start: new Date(mStart), end: new Date(mEnd) }); added=true;}
+        if(fStart && fEnd) { cyclePeriods.fertile.push({ start: new Date(fStart), end: new Date(fEnd) }); added=true;}
+
+        if(added) {
+            saveToLocalStorage();
+            showToast("나의 주기가 성공적으로 누적 저장되었습니다.");
+            document.getElementById('m-start').value = ''; document.getElementById('m-end').value = '';
+            document.getElementById('f-start').value = ''; document.getElementById('f-end').value = '';
+            if(currentPage === 'graph' && showCycle) renderChart();
+        }
+    }
+
+    function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const statusText = document.getElementById('upload-status');
+        statusText.innerText = "데이터 분석 중...";
+        statusText.style.color = "var(--area-2)";
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            const lines = text.split('\n');
+            let headerIndex = 0;
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].includes('Timestamp') || lines[i].includes('타임스탬프')) { headerIndex = i; break; }
+            }
+            const cleanCsvData = lines.slice(headerIndex).join('\n');
+            Papa.parse(cleanCsvData, {
+                header: true, skipEmptyLines: true,
+                complete: function(results) { processDexcomData(results.data, file.name); }, // 📌 파일명 전달
+                error: function(err) {
+                    showToast("파일 분석 오류가 발생했습니다.");
+                    statusText.innerText = "업로드 실패"; statusText.style.color = "red";
+                }
+            });
+        };
+        reader.readAsText(file);
+    }
+
+    function processDexcomData(data, fileName) {
+        let timeKey = null, glucoseKey = null, insulinKey = null;
+        let monthsSet = new Set(availableMonths);
+        let newPointsCount = 0;
+
+        if(data.length > 0) {
+            const keys = Object.keys(data[0]);
+            timeKey = keys.find(k => k.toLowerCase().includes('timestamp') || k.includes('타임스탬프'));
+            glucoseKey = keys.find(k => k.toLowerCase().includes('glucose') || k.includes('포도당'));
+            insulinKey = keys.find(k => k.toLowerCase().includes('insulin') || k.includes('인슐린'));
+        }
+
+        if(!timeKey || !glucoseKey) {
+            document.getElementById('upload-status').innerText = "인식할 수 없는 CSV 양식입니다."; return;
+        }
+
+        data.forEach(row => {
+            const timeStr = row[timeKey];
+            const glucoseStr = row[glucoseKey];
+            const insulinStr = insulinKey ? row[insulinKey] : null;
+            const eventSubType = row['이벤트 하위 유형'] || '';
+
+            if (timeStr) {
+                const dateObj = new Date(timeStr.replace('T', ' ')); 
+                const timestampVal = dateObj.getTime();
+                const dateKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+                const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2, '0')}`; 
+
+                if (!dailyDataMap[dateKey]) {
+                    dailyDataMap[dateKey] = { glucoseSum: 0, glucoseCount: 0, insulinSum: 0, basalSum: 0, bolusSum: 0 };
+                }
+                if(dailyDataMap[dateKey].basalSum === undefined) dailyDataMap[dateKey].basalSum = 0;
+                if(dailyDataMap[dateKey].bolusSum === undefined) dailyDataMap[dateKey].bolusSum = 0;
+
+                let glucoseVal = NaN;
+                if (glucoseStr) {
+                    if (glucoseStr === '낮음' || glucoseStr.toLowerCase() === 'low') glucoseVal = 40;
+                    else glucoseVal = parseFloat(glucoseStr);
+                }
+
+                if (!isNaN(glucoseVal)) {
+                    const gKey = `G_${timestampVal}_${glucoseVal}`;
+                    if (!processedRecords.has(gKey)) {
+                        processedRecords.add(gKey);
+                        globalGlucoseData.push({ x: dateObj, y: glucoseVal });
+                        dailyDataMap[dateKey].glucoseSum += glucoseVal;
+                        dailyDataMap[dateKey].glucoseCount++;
+                        newPointsCount++;
+                        monthsSet.add(monthKey);
+                    }
+                }
+
+                if (insulinStr && !isNaN(parseFloat(insulinStr))) {
+                    let insVal = parseFloat(insulinStr);
+                    const iKey = `I_${timestampVal}_${insVal}_${eventSubType}`;
+                    
+                    if (!processedRecords.has(iKey)) {
+                        processedRecords.add(iKey);
+                        dailyDataMap[dateKey].insulinSum += insVal;
+                        
+                        if (eventSubType.includes('기저') || eventSubType.toLowerCase().includes('basal') || eventSubType.includes('지속')) {
+                            dailyDataMap[dateKey].basalSum += insVal;
+                        } else {
+                            dailyDataMap[dateKey].bolusSum += insVal;
+                        }
+                        newPointsCount++;
+                        monthsSet.add(monthKey);
+                    }
+                }
+            }
+        });
+
+        if(newPointsCount > 0) {
+            globalGlucoseData.sort((a, b) => a.x - b.x);
+            availableMonths = Array.from(monthsSet).sort((a,b) => b.localeCompare(a));
+            if(availableMonths.length > 0) currentMonthStr = availableMonths[0]; 
+            
+            // 📌 CSV 업로드 이력 기록 추가
+            const now = new Date();
+            const timeLogStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            csvUploadHistory.push({
+                date: timeLogStr,
+                fileName: fileName || "알 수 없는 파일",
+                count: newPointsCount
+            });
+
+            updateMonthDropdowns();
+            saveToLocalStorage(); 
+            
+            document.getElementById('upload-status').innerText = `새로운 데이터 ${newPointsCount}건 추가 완료!`;
+            showToast("데이터가 완벽하게 합쳐져 저장되었습니다.");
+        } else {
+            document.getElementById('upload-status').innerText = `추가할 새로운 데이터가 없습니다.`;
+            showToast("이미 등록된 데이터입니다.");
+        }
+        setTimeout(() => navigate('graph'), 1000);
+    }
+
+    // 📌 데이터 확인창 열기 및 렌더링 함수 추가
+    function openDataLogPage() {
+        navigate('data-log');
+        renderDataLog();
+    }
+
+    function renderDataLog() {
+        // 1. 주기 데이터 관리 바인딩
+        const cycleContainer = document.getElementById('cycle-log-container');
+        let cycleHtml = '';
+
+        if (cyclePeriods.menstruation.length === 0 && cyclePeriods.fertile.length === 0) {
+            cycleHtml = '<p style="font-size:13px; color:#bbbbbb; text-align:center; margin:0;">기록된 주기 데이터가 없습니다.</p>';
+        } else {
+            cycleHtml += '<ul style="padding:0; margin:0; list-style:none; font-size:13px;">';
+            
+            // 생리 주기 내역 출력
+            cyclePeriods.menstruation.forEach((p, idx) => {
+                const sStr = p.start.toISOString().split('T')[0];
+                const eStr = p.end.toISOString().split('T')[0];
+                cycleHtml += `<li style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
+                    <span>🩸 <b style="color:var(--area-1);">생리 기간:</b> ${sStr} ~ ${eStr}</span>
+                    <button onclick="deleteCycleItem('menstruation', ${idx})" style="padding:4px 8px; background:#ff6b6b; color:white; border:none; border-radius:8px; font-size:11px; cursor:pointer; font-weight:bold;">삭제</button>
+                </li>`;
+            });
+
+            // 가임기 내역 출력
+            cyclePeriods.fertile.forEach((p, idx) => {
+                const sStr = p.start.toISOString().split('T')[0];
+                const eStr = p.end.toISOString().split('T')[0];
+                cycleHtml += `<li style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
+                    <span>✨ <b style="color:var(--text-accent1);">가임 기간:</b> ${sStr} ~ ${eStr}</span>
+                    <button onclick="deleteCycleItem('fertile', ${idx})" style="padding:4px 8px; background:#ff6b6b; color:white; border:none; border-radius:8px; font-size:11px; cursor:pointer; font-weight:bold;">삭제</button>
+                </li>`;
+            });
+            cycleHtml += '</ul>';
+        }
+        cycleContainer.innerHTML = cycleHtml;
+
+        // 2. CSV 파일 업로드 이력 바인딩
+        const csvContainer = document.getElementById('csv-log-container');
+        let csvHtml = '';
+
+        if (csvUploadHistory.length === 0) {
+            csvHtml = '<p style="font-size:13px; color:#bbbbbb; text-align:center; margin:0;">업로드 이력이 없습니다.</p>';
+        } else {
+            csvHtml += '<ul style="padding:0; margin:0; list-style:none; font-size:12px; color:var(--text-main);">';
+            // 최신 이력이 가장 먼저 위로 오도록 역순 출력
+            for(let i = csvUploadHistory.length - 1; i >= 0; i--) {
+                const log = csvUploadHistory[i];
+                csvHtml += `<li style="margin-bottom:10px; border-bottom:1px dashed var(--border-color); padding-bottom:8px; line-height:1.6;">
+                    ⏱️ <b>일시:</b> ${log.date}<br>
+                    📂 <b>파일명:</b> <span style="color:var(--text-accent1); word-break:break-all;">${log.fileName}</span><br>
+                    ✅ <b>동기화 데이터:</b> ${log.count}건 병합 완료
+                </li>`;
+            }
+            csvHtml += '</ul>';
+        }
+        csvContainer.innerHTML = csvHtml;
+    }
+
+    // 개별 항목 삭제 스크립트
+    function deleteCycleItem(type, index) {
+        if (confirm("해당 기간 기록을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.")) {
+            cyclePeriods[type].splice(index, 1);
+            saveToLocalStorage();
+            showToast("기록이 성공적으로 삭제되었습니다.");
+            renderDataLog(); // 화면 리프레시
+        }
+    }
+
+    function setGraphPeriod(period, btnElement) {
+        currentGraphPeriod = period;
+        const btns = document.querySelectorAll('.graph-period-btn');
+        btns.forEach(btn => { btn.style.background = 'var(--gray-light)'; btn.style.color = 'var(--text-main)'; });
+        btnElement.style.background = 'var(--area-2)'; btnElement.style.color = 'white';
+        if(globalGlucoseData.length > 0) renderChart();
+    }
+
+    function updateMonthDropdowns() {
+        const selects = ['month-select-graph', 'month-select-table'];
+        let optionsHtml = '';
+        if(availableMonths.length === 0) optionsHtml = `<option value="">데이터 없음</option>`;
+        else {
+            availableMonths.forEach(m => {
+                const parts = m.split('-');
+                optionsHtml += `<option value="${m}">${parts[0]}년 ${parseInt(parts[1])}월</option>`;
+            });
+        }
+        selects.forEach(id => { const el = document.getElementById(id); if(el) { el.innerHTML = optionsHtml; el.value = currentMonthStr; }});
+    }
+
+    function changeMonth(monthVal) {
+        currentMonthStr = monthVal;
+        document.getElementById('month-select-graph').value = monthVal;
+        document.getElementById('month-select-table').value = monthVal;
+        if (currentPage === 'graph') renderChart();
+        if (currentPage === 'table') renderTable();
+    }
+
+    function renderChart() {
+        const canvas = document.getElementById('glucoseChart');
+        if(!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        if (myChart) myChart.destroy(); 
+        if (globalGlucoseData.length === 0) return;
+
+        let monthFilteredData = globalGlucoseData.filter(d => {
+            const m = d.x.getFullYear() + '-' + String(d.x.getMonth()+1).padStart(2, '0');
+            return m === currentMonthStr;
+        });
+
+        let filteredGlucoseData = monthFilteredData;
+        let basalInsulinData = [];
+        let bolusInsulinData = [];
+        let xAxisMin = undefined; let xAxisMax = undefined;
+
+        if (monthFilteredData.length > 0) {
+            const latestDate = monthFilteredData[monthFilteredData.length - 1].x;
+            xAxisMax = new Date(latestDate);
+            if (currentGraphPeriod !== 'all') {
+                const cutoffDate = new Date(latestDate);
+                cutoffDate.setDate(cutoffDate.getDate() - currentGraphPeriod);
+                filteredGlucoseData = monthFilteredData.filter(d => d.x >= cutoffDate);
+                xAxisMin = cutoffDate;
+            } else { xAxisMin = new Date(monthFilteredData[0].x); }
+        }
+
+        if (showInsulin) {
+            let sortedDates = Object.keys(dailyDataMap).filter(date => date.startsWith(currentMonthStr)).sort((a,b) => a.localeCompare(b));
+            if (currentGraphPeriod !== 'all' && sortedDates.length > 0) sortedDates = sortedDates.slice(-currentGraphPeriod);
+            
+            sortedDates.forEach(dateStr => {
+                let dData = dailyDataMap[dateStr];
+                let midDay = new Date(dateStr + 'T12:00:00');
+                basalInsulinData.push({ x: midDay, y: dData.basalSum || 0 });
+                bolusInsulinData.push({ x: midDay, y: dData.bolusSum || 0 });
+            });
+        }
+
+        const datasets = [];
+        if (showGlucose && filteredGlucoseData.length > 0) {
+            datasets.push({
+                type: 'line',
+                label: '혈당 (mg/dL)',
+                data: filteredGlucoseData,
+                borderColor: '#0096bd', 
+                backgroundColor: 'rgba(0, 150, 189, 0.1)',
+                borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, fill: true, tension: 0.4,
+                yAxisID: 'y'
+            });
+        }
+
+        if (showInsulin && basalInsulinData.length > 0) {
+            datasets.push({
+                type: 'bar',
+                label: '기저 (U)',
+                data: basalInsulinData,
+                backgroundColor: '#fed98a',
+                borderWidth: 0,
+                yAxisID: 'y1',
+                barPercentage: 0.6
+            });
+            datasets.push({
+                type: 'bar',
+                label: '초속효 (U)',
+                data: bolusInsulinData,
+                backgroundColor: '#ecb0a6',
+                borderWidth: 0,
+                yAxisID: 'y1',
+                barPercentage: 0.6
+            });
+        }
+
+        let annotations = {};
+        if (showCycle) {
+            cyclePeriods.menstruation.forEach((period, i) => {
+                const mEnd = new Date(period.end); mEnd.setHours(23, 59, 59);
+                annotations['menstruation_'+i] = {
+                    type: 'box', xMin: period.start.getTime(), xMax: mEnd.getTime(),
+                    backgroundColor: 'rgba(91, 198, 225, 0.15)', borderWidth: 0, drawTime: 'beforeDatasetsDraw',
+                    label: { display: true, content: '생리', position: 'top', color: '#5bc6e1', font: {size: 10} }
+                };
+            });
+            cyclePeriods.fertile.forEach((period, i) => {
+                const fEnd = new Date(period.end); fEnd.setHours(23, 59, 59);
+                annotations['fertile_'+i] = {
+                    type: 'box', xMin: period.start.getTime(), xMax: fEnd.getTime(),
+                    backgroundColor: 'rgba(236, 176, 166, 0.2)', borderWidth: 0, drawTime: 'beforeDatasetsDraw',
+                    label: { display: true, content: '가임기', position: 'top', color: '#ecb0a6', font: {size: 10} }
+                };
+            });
+        }
+
+        myChart = new Chart(ctx, {
+            data: { datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: {
+                        type: 'time', time: { unit: 'day', displayFormats: { day: 'M/d' } },
+                        min: xAxisMin, max: xAxisMax, grid: { display: false },
+                        stacked: true 
+                    },
+                    y: {
+                        min: 40, max: 350, grid: { color: '#efefef' }, position: 'left', stacked: false
+                    },
+                    y1: {
+                        min: 0, position: 'right', display: showInsulin, 
+                        grid: { drawOnChartArea: false }, stacked: true 
+                    }
+                },
+                plugins: { legend: { display: showInsulin }, annotation: { annotations: annotations, clip: true } } 
+            }
+        });
+    }
+
+    function setTablePeriod(period, btnElement) {
+        currentTablePeriod = period;
+        const btns = document.querySelectorAll('.period-btn');
+        btns.forEach(btn => { btn.style.background = 'var(--gray-light)'; btn.style.color = 'var(--text-main)'; });
+        btnElement.style.background = 'var(--area-2)'; btnElement.style.color = 'white';
+        renderTable();
+    }
+
+    function renderTable() {
+        const tableContainer = document.getElementById('table-container');
+        const recommendedDoseSpan = document.getElementById('display-recommended-dose');
+        
+        let recommendedDose = 0;
+        let weight = parseFloat(userProfile.weight);
+        if (weight > 0) {
+            recommendedDose = weight * 0.55;
+            recommendedDoseSpan.innerText = `약 ${recommendedDose.toFixed(1)} 단위 (체중 ${weight}kg 기준)`;
+        } else { recommendedDoseSpan.innerText = `프로필에 체중을 입력해주세요`; }
+
+        if (Object.keys(dailyDataMap).length === 0) return;
+        let html = `<table style="width:100%; border-collapse: collapse; font-size:13px; text-align:center;">
+                        <tr style="background-color: var(--gray-light); color: var(--text-accent1);">
+                            <th style="padding:10px; border-radius:10px 0 0 10px;">날짜</th>
+                            <th style="padding:10px;">평균 혈당</th>
+                            <th style="padding:10px; border-radius:0 10px 10px 0;">인슐린 (기저:초속)</th>
+                        </tr>`;
+        let sortedDates = Object.keys(dailyDataMap).filter(date => date.startsWith(currentMonthStr)).sort((a,b) => b.localeCompare(a));
+        if (currentTablePeriod !== 'all') sortedDates = sortedDates.slice(0, currentTablePeriod);
+
+        sortedDates.forEach(date => {
+            const dayData = dailyDataMap[date];
+            const avgGlucose = dayData.glucoseCount > 0 ? Math.round(dayData.glucoseSum / dayData.glucoseCount) : '-';
+            const totalInsulin = dayData.insulinSum > 0 ? dayData.insulinSum.toFixed(1) : '0';
+            const basal = (dayData.basalSum || 0).toFixed(1);
+            const bolus = (dayData.bolusSum || 0).toFixed(1);
+            
+            let insulinStyle = "font-weight: bold;";
+            let warningIcon = "";
+            if(recommendedDose > 0 && dayData.insulinSum > recommendedDose * 1.2) {
+                insulinStyle = "color: var(--area-1); font-weight: bold;";
+                warningIcon = " ⚠️";
+            }
+
+            const dateParts = date.split('-');
+            const shortDate = `${parseInt(dateParts[1])}/${parseInt(dateParts[2])}`;
+
+            html += `<tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding:12px 5px; color:var(--text-main);">${shortDate}</td>
+                        <td style="padding:12px 5px; font-weight:bold;">${avgGlucose}</td>
+                        <td style="padding:12px 5px; ${insulinStyle}">${totalInsulin} U${warningIcon}<br><span style="font-size:11px; color:#888; font-weight:normal;">(${basal} : ${bolus})</span></td>
+                     </tr>`;
+        });
+
+        html += `</table>`;
+        tableContainer.innerHTML = html;
+    }
+
+    function toggleDataset(type) {
+        const btn = document.getElementById('btn-toggle-' + type);
+        if (type === 'glucose') {
+            showGlucose = !showGlucose;
+            btn.style.opacity = showGlucose ? '1' : '0.5';
+            btn.innerText = showGlucose ? '혈당 (ON)' : '혈당 (OFF)';
+        } else if (type === 'insulin') {
+            showInsulin = !showInsulin;
+            btn.style.opacity = showInsulin ? '1' : '0.5';
+            btn.innerText = showInsulin ? '인슐린 (ON)' : '인슐린 (OFF)';
+        } else if (type === 'cycle') {
+            showCycle = !showCycle;
+            btn.style.opacity = showCycle ? '1' : '0.5';
+            btn.innerText = showCycle ? '생리주기 (ON)' : '생리주기 (OFF)';
+            
+            if(showCycle && cyclePeriods.menstruation.length === 0 && cyclePeriods.fertile.length === 0) {
+                showToast("저장된 주기 데이터가 없습니다. 먼저 업로드 탭에서 기간을 입력해주세요.");
+            }
+        }
+        if (currentPage === 'graph') renderChart();
+    }
+</script>
+
+</body>
+</html><!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Glucose & Hormone Tracker</title>
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

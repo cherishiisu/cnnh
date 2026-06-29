@@ -246,7 +246,7 @@
                 <div class="img-placeholder" style="width: 60px; height: 60px; margin: 0 auto 15px auto; border-radius:12px; background-color: white; border: 1px solid var(--area-2); color: var(--area-2); cursor:pointer;" onclick="document.getElementById('csvFileInput').click()">CSV</div>
                 <p id="upload-status" style="margin:0 0 15px 0; font-size:14px; color:var(--text-accent1);">덱스콤 CSV 파일을 올려주세요</p>
                 
-                <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="handleFileUpload(event)">
+                <input type="file" id="csvFileInput" accept=".csv, text/csv, text/plain, application/vnd.ms-excel, */*" style="display:none;" onchange="handleFileUpload(event)">
                 <button class="btn btn-secondary" onclick="document.getElementById('csvFileInput').click()">파일 선택하기</button>
             </div>
 

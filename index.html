@@ -233,7 +233,7 @@
             <h1><button class="btn-back" onclick="goBack()">❮</button><span id="detail-date-title">상세 기록</span></h1>
         </div>
         <div class="content">
-            <div class="box" id="daily-detail-container" style="padding:15px; overflow-x:auto;">
+            <div class="box" id="daily-detail-container" style="padding:15px 5px; overflow-x:auto;">
                 </div>
         </div>
     </div>
@@ -965,7 +965,6 @@
                 warningIcon = " ⚠️";
             }
 
-            // 📌 월간 표 고혈당/저혈당 빨간색 처리
             let glucoseStyle = "font-weight: bold;";
             if (avgGlucose !== '-' && (avgGlucose >= 300 || avgGlucose <= 69)) {
                 glucoseStyle += " color: var(--alert-red);";
@@ -999,22 +998,43 @@
         } else {
             dayData.events.sort((a,b) => a.ts - b.ts);
 
-            html = `<table style="width:100%; border-collapse: collapse; font-size:13px; text-align:center;">
+            // 📌 빈 혈당치 자동 채우기 로직 (앞뒤 15분 이내 기록 탐색)
+            dayData.events.forEach(ev => {
+                if (ev.glucose === '-') {
+                    let evTime = new Date(dateKey + 'T' + ev.timeStr + ':00').getTime();
+                    let minDiff = 15 * 60 * 1000; // 15분
+                    let closestG = null;
+                    
+                    globalGlucoseData.forEach(g => {
+                        let diff = Math.abs(g.x.getTime() - evTime);
+                        if (diff < minDiff) {
+                            minDiff = diff;
+                            closestG = g.y;
+                        }
+                    });
+                    
+                    if (closestG !== null) {
+                        ev.glucose = (closestG <= 40) ? '낮음(40)' : closestG;
+                    }
+                }
+            });
+
+            // 📌 넓게 보이도록 표 스타일 수정 (글자 크기 증가, 최소 너비 설정)
+            html = `<div style="overflow-x:auto;"><table style="width:100%; min-width:340px; border-collapse: collapse; font-size:14px; text-align:center;">
                 <tr style="background-color: var(--gray-light); color: var(--text-accent1);">
-                    <th style="padding:10px; border-radius:10px 0 0 10px;">시간</th>
-                    <th style="padding:10px;">혈당</th>
-                    <th style="padding:10px;">탄수(g)</th>
-                    <th style="padding:10px; border-radius:0 10px 10px 0;">인슐린(U)</th>
+                    <th style="padding:12px 5px; border-radius:10px 0 0 10px;">시간</th>
+                    <th style="padding:12px 5px;">혈당</th>
+                    <th style="padding:12px 5px;">탄수(g)</th>
+                    <th style="padding:12px 5px; border-radius:0 10px 10px 0;">인슐린(U)</th>
                 </tr>`;
 
             dayData.events.forEach(ev => {
                 let insDisp = ev.insulin;
                 if(ev.insulin !== '-') {
                     let typeLabel = (ev.insType.includes('기저') || ev.insType.toLowerCase().includes('basal') || ev.insType.includes('지속')) ? '기저' : '초속';
-                    insDisp = `${ev.insulin} <span style="font-size:10px;color:#888;">(${typeLabel})</span>`;
+                    insDisp = `${ev.insulin} <span style="font-size:11px;color:#888;">(${typeLabel})</span>`;
                 }
                 
-                // 📌 일일 상세 표 고혈당/저혈당 빨간색 처리 ('낮음(40)' 포함)
                 let gStyle = "font-weight:bold; color:var(--area-2);";
                 let rawG = ev.glucose;
                 if (rawG === '낮음(40)') {
@@ -1028,14 +1048,14 @@
 
                 if (ev.glucose !== '-' || ev.carb !== '-' || ev.insulin !== '-') {
                     html += `<tr style="border-bottom: 1px solid var(--border-color);">
-                        <td style="padding:10px 2px; color:var(--text-main);">${ev.timeStr}</td>
-                        <td style="padding:10px 2px; ${gStyle}">${ev.glucose}</td>
-                        <td style="padding:10px 2px; font-weight:bold; color:#ffab9e;">${ev.carb !== '-' ? ev.carb : ''}</td>
-                        <td style="padding:10px 2px; font-weight:bold;">${insDisp !== '-' ? insDisp : ''}</td>
+                        <td style="padding:12px 2px; color:var(--text-main); white-space:nowrap;">${ev.timeStr}</td>
+                        <td style="padding:12px 2px; ${gStyle}">${ev.glucose}</td>
+                        <td style="padding:12px 2px; font-weight:bold; color:#ffab9e;">${ev.carb !== '-' ? ev.carb : ''}</td>
+                        <td style="padding:12px 2px; font-weight:bold;">${insDisp !== '-' ? insDisp : ''}</td>
                     </tr>`;
                 }
             });
-            html += `</table>`;
+            html += `</table></div>`;
         }
 
         document.getElementById('daily-detail-container').innerHTML = html;

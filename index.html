@@ -2,13 +2,13 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Glucose & Hormone Tracker</title>
 
     <!-- 📌 사파리 "홈 화면에 추가" 시 쓰이는 아이콘 및 설정 -->
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="GHT">
     
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
@@ -59,6 +59,7 @@
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
             overflow: hidden;
             transition: all 0.3s ease;
+            padding-top: env(safe-area-inset-top); /* 📌 홈화면 실행(standalone) 시 상태바 영역도 앱 배경색으로 채우기 */
         }
 
         /* 📱 아이패드 및 데스크톱 지원 (세로 높이가 충분할 때만 - 휴대폰 가로모드는 제외) */
@@ -106,7 +107,8 @@
             height: 100%;
             box-sizing: border-box;
             overflow-y: auto;
-            padding-bottom: 80px; 
+            -webkit-overflow-scrolling: touch; /* 📌 iOS 사파리에서 터치 스크롤이 아예 안 먹던 문제 수정 */
+            padding-bottom: 110px; 
             animation: fadeIn 0.3s ease-in-out;
         }
 
@@ -240,7 +242,7 @@
     <div id="toast-msg">메시지</div>
 
     <div id="page-splash" class="page active" style="justify-content: center; align-items: center; background-color: var(--bg-color); padding-bottom:0;">
-        <img src="main_logo.png" style="width: 200px; height: 200px; border-radius: 50%; cursor: pointer;" onclick="handleSplashLogoClick()" alt="Logo">
+        <img src="main_logo.png" style="width: 70%; max-width: 280px; height: auto; cursor: pointer;" onclick="handleSplashLogoClick()" alt="Logo">
     </div>
 
     <div id="page-profile" class="page">
@@ -311,7 +313,7 @@
                 <button id="btn-toggle-cycle" class="toggle-btn" style="background:var(--area-1); opacity:1;" onclick="toggleDataset('cycle')">생리주기 (ON)</button>
             </div>
 
-            <div id="cycle-stats-container" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;"></div>
+            <div id="cycle-stats-container" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:20px;"></div>
         </div>
     </div>
 
@@ -1244,11 +1246,14 @@
                 }] },
                 options: {
                     responsive: true, maintainAspectRatio: false,
+                    layout: { padding: { left: 0, right: 0 } },
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
                             type: 'time', time: { unit: 'day', displayFormats: { day: 'M/d' } }, min: xMin, max: xMax,
-                            grid: { display: false }, ticks: { display: false }, border: { display: false }
+                            grid: { display: false },
+                            ticks: { color: 'rgba(0,0,0,0)', callback: function() { return ''; } }, // 📌 라벨을 완전히 숨기지 않고 투명 처리 -> 아래 차트와 동일한 여백 계산 유지
+                            border: { display: false }
                         },
                         y: { grid: { color: '#efefef' }, ...yAxisWidthFix }
                     },
@@ -1275,9 +1280,10 @@
                 }] },
                 options: {
                     responsive: true, maintainAspectRatio: false,
+                    layout: { padding: { left: 0, right: 0 } },
                     interaction: { mode: 'index', intersect: false },
                     scales: {
-                        x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'M/d' } }, min: xMin, max: xMax, grid: { display: false } },
+                        x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'M/d' } }, min: xMin, max: xMax, grid: { display: false }, border: { display: false } },
                         y: { min: 0, grid: { color: '#efefef' }, ...yAxisWidthFix }
                     },
                     plugins: { legend: { display: false }, annotation: { annotations, clip: false } }

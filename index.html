@@ -39,22 +39,20 @@
             background-color: #e0e0e0; 
             color: var(--text-main);
             font-family: 'Pretendard', sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            height: 100dvh; /* 📌 모바일 브라우저 주소창 유무에 따라 100vh가 실제 화면보다 커지는 문제 보완 (가로모드에서 특히 두드러짐) */
             overflow: hidden;
         }
 
         /* === 앱 컨테이너 === */
+        /* 📌 position:fixed + inset:0 방식: 뷰포트 네 변에 직접 고정시켜서
+           flex 정렬/vh·dvh 계산에 좌우되지 않고 항상 화면 전체(세이프에어리어 포함)를 정확히 채움 */
         .app-container {
+            position: fixed;
+            inset: 0;
+            margin: 0 auto; /* 가로만 중앙 정렬 (좁은 화면에서는 어차피 꽉 참) */
             width: 100%;
             max-width: 480px; 
-            height: 100%;
-            box-sizing: border-box; /* 📌 필수: 이게 없으면 아래 padding-top이 전체 높이에 더해져서 하단이 화면 밖으로 밀려남 */
+            box-sizing: border-box;
             background-color: var(--bg-color);
-            position: relative;
             display: flex;
             flex-direction: column;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
@@ -69,11 +67,14 @@
                 background-color: #f4f4f4;
             }
             .app-container {
+                top: auto; bottom: auto; /* inset:0의 상하 고정을 해제하고 높이를 직접 지정 */
+                margin: auto; /* 가로+세로 모두 중앙 정렬 */
                 max-width: 800px;
                 height: 90vh;
                 height: 90dvh;
                 border-radius: 30px;
                 border: 1px solid var(--border-color);
+                padding-top: 0; /* 데스크톱/태블릿 창에는 세이프에어리어가 없음 */
             }
             .bottom-nav {
                 border-radius: 0 0 30px 30px;
@@ -230,7 +231,7 @@
         .period-btn, .graph-period-btn { padding: 6px 12px; border-radius: 15px; font-size: 13px; font-weight: bold; cursor: pointer; border: none; transition: 0.2s; }
 
         #toast-msg {
-            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            position: absolute; top: calc(env(safe-area-inset-top) + 80px); left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 20px;
             font-size: 14px; z-index: 1000; display: none; opacity: 0; transition: opacity 0.3s;
             text-align: center; white-space: nowrap;
@@ -464,7 +465,7 @@
         </div>
     </div>
 
-    <div id="home-btn" onclick="navigate('splash')" style="display:none; position:absolute; top:18px; right:16px; z-index:60; cursor:pointer; width:24px; height:24px;">
+    <div id="home-btn" onclick="navigate('splash')" style="display:none; position:absolute; top:calc(env(safe-area-inset-top) + 18px); right:16px; z-index:60; cursor:pointer; width:24px; height:24px;">
         <img src="icon_home.png" alt="홈" style="width:24px; height:24px; object-fit:contain;" onerror="this.style.display='none'">
     </div>
 
